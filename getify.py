@@ -4,6 +4,7 @@ import sys
 import urllib.request
 import uuid
 import zipfile
+from typing import Optional, Any
 
 from PIL import Image
 from PIL import ImageDraw
@@ -18,8 +19,6 @@ def find_between(file):
 
 
 """Downloads web page from Wuxiaworld and saves it into the folder where the programm is located"""
-
-
 def download(link, file_name):
     url = urllib.request.Request(
         link,
@@ -32,15 +31,39 @@ def download(link, file_name):
     with urllib.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
-    """Extract Text from Wuxiaworld html file and saves it into a seperate xhtml file"""
+def remove_patreon_message(content: BeautifulSoup):
+    """
+    Removes the Patreon message if it exists
+    :param content: bs4 representation of the content
+    :return: content without the patreon message if it exists
+    """
+    hr: list = content.find_all("hr")
+    if len(hr) >= 2:
+        first: BeautifulSoup = hr[-2]
+        second: BeautifulSoup = hr[-1]
+        elements_between = first.find_next_siblings()
+        if elements_between[-1] == second:
+            if len(elements_between) - 1 <= 5:
+                print("Detected Patreon message. Removing...")
+                e: BeautifulSoup
+                for e in elements_between:
+                    e.decompose()
+                first.decompose()
+                second.decompose()
+    return content
 
 
 def clean(file_name_in, file_name_out):
+    """
+    Extract Text from Wuxiaworld html file and saves it into a seperate xhtml file
+    :param file_name_in: Name of html file coming in
+    :param file_name_out: Name of lxml file to be saved.
+    """
     has_spoiler = None
     raw = open(file_name_in, "r", encoding="utf8")
     soup = BeautifulSoup(raw, 'lxml')
-    chapter_title = soup.find(class_="caption clearfix")
-    content = chapter_title.find_next_sibling(class_="fr-view")
+    chapter_title: BeautifulSoup = soup.find(class_="caption clearfix")
+    content: BeautifulSoup = chapter_title.find_next_sibling(class_="fr-view")
     chapter_title = chapter_title.find("h4")
     if chapter_title.attrs["class"][0] == "text-spoiler":
         has_spoiler = chapter_title.text
@@ -50,6 +73,7 @@ def clean(file_name_in, file_name_out):
 
     for a in content.find_all("a"):
         a.decompose()
+
     raw.close()
 
     html_tmpl ='''<?xml version="1.0" encoding="utf-8"?>
@@ -67,21 +91,22 @@ def clean(file_name_in, file_name_out):
     </html>
     '''
 
+    content = remove_patreon_message(content)
+    content_str = content.decode_contents()
+
     file = open(file_name_out, "w", encoding="utf8")
     if has_spoiler == None:
         file.write(html_tmpl % {"chapter_title": chapter_title,
-                                "content": content.decode_contents(),
+                                "content": content_str,
                                 "spoiler": ""})
     else:
         file.write(html_tmpl % {"chapter_title": chapter_title,
-                                "content": content.decode_contents(),
+                                "content": content_str,
                                 "spoiler": "<strong>The chapter name is: " + has_spoiler + "</strong>"})
     os.remove(file_name_in)
 
 
 """Displays and updates the download progress bar"""
-
-
 # This function is not used anymore but may be added later on.
 # Still fully functional though
 def update_progress(progress):
@@ -109,8 +134,6 @@ def update_progress(progress):
     in the before mentioned color.
     Todo: Improve CCR to ignore bright parts of cover's that makes text sometimes
     hard to read."""
-
-
 def cover_generator(src, starting, ending):
     urllib.request.urlretrieve(src, "cover.jpg")
     img = Image.open("cover.jpg")
@@ -125,7 +148,7 @@ def cover_generator(src, starting, ending):
     bluec = 255 - img2.getpixel((0, 0))[2]
     complementary = (redc, greebc, bluec)
     w, h = draw.textsize(msg, font=thefont)
-    # Allig's and writes the text
+    # Aligns and writes the text
     draw.text(((W - w) / 2, 2), msg, complementary, font=thefont)
     img.save("cover.jpg")
 
@@ -135,8 +158,6 @@ def cover_generator(src, starting, ending):
     mimetype and content files
     ToDo: Generaliseing this part of the code and make it standalone accessible.
     Sidenote: Will take a lot of time."""
-
-
 def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, cleanup=True):
     epub = zipfile.ZipFile(novelname + "_" + chapter_s + "-" + chapter_e + ".epub", "w")
 
