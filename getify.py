@@ -167,8 +167,8 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
             %(metadata)s
         </metadata>
         <manifest>
-            <item href="cover.jpg" id="cover" media-type="image/jpeg" properties="cover-image"/>
             <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+            <item id="cover" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>
             %(manifest)s
         </manifest>
         <spine toc="ncx">
@@ -185,8 +185,6 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
         <meta name="Sigil version" content="0.9.6" />
         ''' % {
         "novelname": novelname + ": " + chapter_s + "-" + chapter_e, "author": author}
-
-    toc_manifest = '<item href="toc.xhtml" id="toc" properties="nav" media-type="application/xhtml+xml"/>'
 
     toc_tmpl = '''<?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
@@ -236,7 +234,7 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
     # Finally, write the index
     epub.writestr("OEBPS/content.opf", index_tpl % {
         "metadata": metadata,
-        "manifest": manifest + toc_manifest,
+        "manifest": manifest,
         "spine": spine,
     })
 

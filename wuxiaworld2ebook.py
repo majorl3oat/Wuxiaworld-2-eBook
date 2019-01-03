@@ -82,7 +82,7 @@ def button_press():
                     # Not an HTTP-specific error (e.g. connection refused)
                     print('URL: {}, URLError: {}'.format(bulk_list[x], e.reason))
                 else:
-                    getify.clean(str(s_chapter) + ".xhtml", _get_xhtml_path(raw_info, s_chapter), name)
+                    getify.clean(str(s_chapter) + ".xhtml", _get_xhtml_path(raw_info, s_chapter))
             s_chapter = int(s_chapter) + 1
 
         getify.generate(file_list, raw_info[0], raw_info[3], raw_info[2], reset, str(e_chapter), cleanup=cleanup)
