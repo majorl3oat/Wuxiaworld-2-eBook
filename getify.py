@@ -35,7 +35,7 @@ def download(link, file_name):
     """Extract Text from Wuxiaworld html file and saves it into a seperate xhtml file"""
 
 
-def clean(file_name_in, file_name_out, start):
+def clean(file_name_in, file_name_out):
     has_spoiler = None
     raw = open(file_name_in, "r", encoding="utf8")
     soup = BeautifulSoup(raw, 'lxml')
@@ -52,8 +52,7 @@ def clean(file_name_in, file_name_out, start):
         a.decompose()
     raw.close()
 
-    html_tmpl ='''
-    <?xml version="1.0" encoding="utf-8"?>
+    html_tmpl ='''<?xml version="1.0" encoding="utf-8"?>
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
       "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
     <html xmlns="http://www.w3.org/1999/xhtml">
@@ -71,11 +70,11 @@ def clean(file_name_in, file_name_out, start):
     file = open(file_name_out, "w", encoding="utf8")
     if has_spoiler == None:
         file.write(html_tmpl % {"chapter_title": chapter_title,
-                                "content": str(content),
+                                "content": content.decode_contents(),
                                 "spoiler": ""})
     else:
         file.write(html_tmpl % {"chapter_title": chapter_title,
-                                "content": str(content),
+                                "content": content.decode_contents(),
                                 "spoiler": "<strong>The chapter name is: " + has_spoiler + "</strong>"})
     os.remove(file_name_in)
 
@@ -149,8 +148,7 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
     # This index file itself is referenced in the META_INF/container.xml
     # file
     epub.writestr("META-INF/container.xml",
-                  '''
-                  <?xml version="1.0" encoding="UTF-8"?>
+                  '''<?xml version="1.0" encoding="UTF-8"?>
                   <container version="1.0" 
                      xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
                      <rootfiles>
@@ -163,18 +161,17 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
     # in OEBPS/content.xml
     uniqueid = uuid.uuid1().hex
 
-    index_tpl = '''
-    <package version="3.1"
-    xmlns="http://www.idpf.org/2007/opf" unique-identifier="''' + uniqueid + '''">
-        <metadata>
+    index_tpl = '''<?xml version="1.0" encoding="utf-8"?>
+    <package version="2.0" unique-identifier="BookId" xmlns="http://www.idpf.org/2007/opf">
+        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
             %(metadata)s
         </metadata>
         <manifest>
-            %(manifest)s
             <item href="cover.jpg" id="cover" media-type="image/jpeg" properties="cover-image"/>
+            <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+            %(manifest)s
         </manifest>
-        <spine>
-            <itemref idref="toc"/>
+        <spine toc="ncx">
             %(spine)s
         </spine>
     </package>
@@ -182,20 +179,59 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
 
     manifest = ""
     spine = ""
-    metadata = '''<dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">%(novelname)s</dc:title>
-        <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:ns0="http://www.idpf.org/2007/opf" ns0:role="aut" ns0:file-as="Unbekannt">%(author)s</dc:creator>
-        <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">en</dc:language>
-        <dc:identifier xmlns:dc="http://purl.org/dc/elements/1.1/">%(uuid)s"</dc:identifier>''' % {
-        "novelname": novelname + ": " + chapter_s + "-" + chapter_e, "author": author, "uuid": uniqueid}
+    metadata = '''<dc:title>%(novelname)s</dc:title>
+        <dc:creator opf:role="aut" opf:file-as="%(author)s">%(author)s</dc:creator>
+        <dc:language>en</dc:language>
+        <meta name="Sigil version" content="0.9.6" />
+        ''' % {
+        "novelname": novelname + ": " + chapter_s + "-" + chapter_e, "author": author}
+
     toc_manifest = '<item href="toc.xhtml" id="toc" properties="nav" media-type="application/xhtml+xml"/>'
+
+    toc_tmpl = '''<?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
+       "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+    <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+      <head>
+        <meta name="dtb:depth" content="2"/>
+        <meta name="dtb:totalPageCount" content="0"/>
+        <meta name="dtb:maxPageNumber" content="0"/>
+      </head>
+      <docTitle>
+        <text>%(novelname)s</text>
+      </docTitle>
+      <navMap>
+        %(toc_mid)s
+      </navMap>
+    </ncx>
+    '''
+
+    nav_point_tmpl = '''<navPoint id="navPoint-%(num)d" playOrder="%(num)d">
+        <navLabel>
+          <text>%(chapter_title)s</text>
+        </navLabel>
+        <content src="%(chapter_file_path)s"/>
+      </navPoint>
+    '''
+
+    toc_mid = ""
 
     # Write each HTML file to the ebook, collect information for the index
     for i, html in enumerate(html_files):
         basename = os.path.basename(html)
-        manifest += '<item id="file_%s" href="%s" media-type="application/xhtml+xml"/>' % (
-            i + 1, basename)
-        spine += '<itemref idref="file_%s" />' % (i + 1)
-        epub.write(html, "OEBPS/" + basename)
+        chapter_file_path = "text/" + basename
+
+        # Append for index
+        manifest += '<item id="file_%s" href="%s" media-type="application/xhtml+xml"/>\n' % (
+            i + 1, chapter_file_path)
+        spine += '<itemref idref="file_%s"/>\n' % (i + 1)
+
+        # Append for TOC
+        chapter_title = find_between(html_files[i])
+        chapter_title = str(chapter_title)
+        toc_mid += nav_point_tmpl % {"num": (i + 1), "chapter_title": chapter_title, "chapter_file_path": chapter_file_path}
+
+        epub.write(html, "OEBPS/text/" + basename)
 
     # Finally, write the index
     epub.writestr("OEBPS/content.opf", index_tpl % {
@@ -204,36 +240,9 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
         "spine": spine,
     })
 
-    # Generates a Table of Contents + lost strings
-    toc_start = '''
-    <?xml version='1.0' encoding='utf-8'?>
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-        <head>
-            <title>%(novelname)s</title>
-        </head>
-        <body>
-            <section class="frontmatter TableOfContents">
-                <header>
-                    <h1>Contents</h1>
-                </header>
-                <nav id="toc" role="doc-toc" epub:type="toc">
-                    <ol>
-                    %(toc_mid)s
-            %(toc_end)s
-            '''
-    toc_mid = ""
-    toc_end = '''</ol></nav></section></body></html>'''
+    # Write the TOC
+    epub.writestr("OEBPS/toc.ncx", toc_tmpl % {"novelname": novelname, "toc_mid": toc_mid})
 
-    for i, y in enumerate(html_files):
-        ident = 0
-        chapter = find_between(html_files[i])
-        chapter = str(chapter)
-        toc_mid += '''<li class="toc-Chapter-rw" id="num_%s">
-            <a href="%s">%s</a>
-            </li>''' % (i, html_files[i], chapter)
-
-    epub.writestr("OEBPS/toc.xhtml", toc_start % {"novelname": novelname, "toc_mid": toc_mid, "toc_end": toc_end})
     epub.write("cover.jpg", "OEBPS/cover.jpg")
     epub.close()
     os.remove("cover.jpg")
