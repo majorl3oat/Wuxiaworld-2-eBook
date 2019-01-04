@@ -69,12 +69,14 @@ def button_press():
         y = int(s_chapter)
         file_list = []
         for x in range(len(bulk_list)):
-            if path.exists(_get_xhtml_path(raw_info, s_chapter)):
-                print(_get_xhtml_path(raw_info, s_chapter), " already exists")
+            xhtml_path = _get_xhtml_path(raw_info, s_chapter)
+            if path.exists(xhtml_path):
+                print(xhtml_path, " already exists")
+                file_list.append(xhtml_path)
             else:
                 try:
                     getify.download(bulk_list[x], str(s_chapter) + ".xhtml")
-                    file_list.append(_get_xhtml_path(raw_info, s_chapter))
+                    file_list.append(xhtml_path)
                 except HTTPError as e:
                     # Return code error (e.g. 404, 501, ...)
                     print('URL: {}, HTTPError: {} - {}'.format(bulk_list[x], e.code, e.reason))
@@ -82,7 +84,7 @@ def button_press():
                     # Not an HTTP-specific error (e.g. connection refused)
                     print('URL: {}, URLError: {}'.format(bulk_list[x], e.reason))
                 else:
-                    getify.clean(str(s_chapter) + ".xhtml", _get_xhtml_path(raw_info, s_chapter))
+                    getify.clean(str(s_chapter) + ".xhtml", xhtml_path)
             s_chapter = int(s_chapter) + 1
 
         getify.generate(file_list, raw_info[0], raw_info[3], raw_info[2], reset, str(e_chapter), cleanup=cleanup)
@@ -91,7 +93,7 @@ def button_press():
         generate_button.configure(state="enabled")
 
 
-def _get_xhtml_path(raw_info, s_chapter, extension=".xhtml"):
+def _get_xhtml_path(raw_info: object, s_chapter: object, extension: object = ".xhtml") -> str:
     return path.join(raw_info[0], raw_info[2] + str(s_chapter) + extension)
 
 
