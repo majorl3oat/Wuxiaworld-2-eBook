@@ -5,6 +5,7 @@ import urllib.request
 import uuid
 import zipfile
 from typing import Optional, Any
+from zipfile import ZipFile
 
 from PIL import Image
 from PIL import ImageDraw
@@ -159,7 +160,7 @@ def cover_generator(src, starting, ending):
     ToDo: Generaliseing this part of the code and make it standalone accessible.
     Sidenote: Will take a lot of time."""
 def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, cleanup=True):
-    epub = zipfile.ZipFile(novelname + "_" + chapter_s + "-" + chapter_e + ".epub", "w")
+    epub: ZipFile = zipfile.ZipFile(novelname + "_" + chapter_s + "-" + chapter_e + ".epub", "w")
 
     # The first file must be named "mimetype"
     epub.writestr("mimetype", "application/epub+zip")
@@ -188,8 +189,6 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
             %(metadata)s
         </metadata>
         <manifest>
-            <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-            <item id="cover" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>
             %(manifest)s
         </manifest>
         <spine toc="ncx">
@@ -198,14 +197,19 @@ def generate(html_files, novelname, author, chaptername, chapter_s, chapter_e, c
     </package>
     '''
 
-    manifest = ""
-    spine = ""
     metadata = '''<dc:title>%(novelname)s</dc:title>
         <dc:creator opf:role="aut" opf:file-as="%(author)s">%(author)s</dc:creator>
         <dc:language>en</dc:language>
         <meta name="Sigil version" content="0.9.6" />
+        <meta name="cover" content="cover" />
         ''' % {
         "novelname": novelname + ": " + chapter_s + "-" + chapter_e, "author": author}
+
+    manifest = '''<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+        <item id="cover" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+        '''
+
+    spine = ""
 
     toc_tmpl = '''<?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
