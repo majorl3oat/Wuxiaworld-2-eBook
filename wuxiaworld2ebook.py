@@ -49,7 +49,11 @@ def button_press():
                 raw_info.append(i)
         raw_info = raw_info[0]
         if raw_info[5] == 0:
-            link = raw_info[1]
+             # Very ugly fix, for 7 Killers
+            if raw_info[0] == "7 Killers":
+                link = raw_info[1] + "-invalid-"
+            else:
+                link = raw_info[1]
         else:
             link = raw_info[1] + str(booknr) + "-chapter-"
 
@@ -80,6 +84,7 @@ def button_press():
                 except HTTPError as e:
                     # Return code error (e.g. 404, 501, ...)
                     print('URL: {}, HTTPError: {} - {}'.format(bulk_list[x], e.code, e.reason))
+                    checkExceptionURL(xhtml_path, file_list, raw_info, s_chapter)
                 except URLError as e:
                     # Not an HTTP-specific error (e.g. connection refused)
                     print('URL: {}, URLError: {}'.format(bulk_list[x], e.reason))
@@ -92,6 +97,22 @@ def button_press():
     finally:
         generate_button.configure(state="enabled")
 
+def checkExceptionURL(xhtml_path, file_list: object, raw_info: object, s_chapter: object):
+    print('Searching in exceptions... ' + raw_info[0] + ' - ' + str(s_chapter))
+    
+    try:
+        with open('exceptions.json') as json_file:
+            data = json.load(json_file)
+            for chap in data["exceptions"][raw_info[0]]:
+                if (chap["chapter"] == str(s_chapter)):
+                    print('Exception URL' + chap["url"])
+                    getify.download(chap["url"], str(s_chapter) + ".xhtml")
+                    file_list.append(_get_xhtml_path(raw_info, s_chapter))
+                    getify.clean(str(s_chapter) + ".xhtml", xhtml_path)
+                    print('finish download chapter ' + str(s_chapter))
+                    break
+    except IOError as e:
+        print(e)
 
 def _get_xhtml_path(raw_info: object, s_chapter: object, extension: object = ".xhtml") -> str:
     return path.join(raw_info[0], raw_info[2] + str(s_chapter) + extension)
